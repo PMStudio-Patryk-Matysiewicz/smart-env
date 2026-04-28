@@ -1,0 +1,9 @@
+[package]
+name = "smart-env"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+
+[dev-dependencies]
+temp-env = "0.3"
