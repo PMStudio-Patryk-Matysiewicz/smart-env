@@ -1,7 +1,6 @@
-[package]
-name = "smart-env"
-version = "0.1.0"
-edition = "2021"
+[workspace]
+members = ["core", "macros", "cli"]
+resolver = "2"
 
 [dependencies]
 

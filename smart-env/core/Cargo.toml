@@ -1,0 +1,8 @@
+[package]
+name = "smart-env-core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+thiserror = "1.0"
+miette = { version = "7.0", features = ["fancy"] }
