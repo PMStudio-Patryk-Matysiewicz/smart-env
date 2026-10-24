@@ -1,4 +1,4 @@
-use smart_env::{init, get, get_or, explain, Source};
+use smart_env_core::{explain, get, get_or, init, Source};
 use std::fs;
 
 use temp_env::with_var;
@@ -6,7 +6,6 @@ use temp_env::with_var;
 #[test]
 fn test_get_from_system_env() {
     with_var("TEST_PORT", Some("1234"), || {
-
         let val: u16 = get("TEST_PORT").unwrap();
         assert_eq!(val, 1234);
 
