@@ -6,7 +6,7 @@ pub fn read_env_file(path: &str) -> HashMap<String, String> {
 
     let content = match fs::read_to_string(path) {
         Ok(c) => c,
-        Err(_) => return map, // brak pliku = pusta mapa
+        Err(_) => return map,
     };
 
     for line in content.lines() {

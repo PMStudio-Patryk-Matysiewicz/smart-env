@@ -59,7 +59,6 @@ mod tests {
         let store = EnvStore { variables: vars };
         let result: Result<u16, EnvError> = store.get_parsed("PORT");
 
-        // Weryfikacja czy literówki rzucają błąd parsowania
         assert!(matches!(result, Err(EnvError::ParseError(_))));
     }
 }

@@ -14,7 +14,6 @@ fn test_get_from_system_env() {
     });
 }
 
-// getting from .env test
 #[test]
 fn test_get_from_env_file() {
     fs::write(".env", "API_KEY=xyz").unwrap();
@@ -30,7 +29,6 @@ fn test_get_from_env_file() {
     fs::remove_file(".env").unwrap();
 }
 
-//missing var test
 #[test]
 fn test_get_or_default() {
     let val: u16 = get_or("MISSING_VAR", 999);
