@@ -38,3 +38,39 @@ impl ConfigBuilder {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use temp_env::with_vars;
+
+    #[test]
+    fn test_builder_priority_system_over_file() {
+        let dir = tempfile::tempdir().expect("Nie można utworzyć katalogu tymczasowego");
+        let path = dir.path().join(".env");
+        fs::write(&path, "APP_PORT=3000\nDATABASE_URL=postgres://local\n").unwrap();
+
+        with_vars(
+            [
+                ("DATABASE_URL", Some("postgres://production")),
+                ("APP_PORT", None::<&str>),
+            ],
+            || {
+                let store = ConfigBuilder::new()
+                    .load_env_file(path.to_str().unwrap())
+                    .load_system_env()
+                    .build();
+
+                assert_eq!(store.get("APP_PORT").unwrap(), "3000");
+                assert_eq!(store.get("DATABASE_URL").unwrap(), "postgres://production");
+            },
+        );
+    }
+
+    #[test]
+    fn test_empty_builder() {
+        let store = ConfigBuilder::new().build();
+        assert!(store.get("").is_none());
+    }
+}
