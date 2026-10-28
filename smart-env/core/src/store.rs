@@ -12,7 +12,7 @@ impl EnvStore {
             .get(key)
             .ok_or_else(|| EnvError::MissingVar(key.to_string()))?;
 
-        T::parse(raw_val)
+        T::from_env(raw_val)
     }
 
     pub fn get(&self, key: &str) -> Option<&String> {
