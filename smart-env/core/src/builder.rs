@@ -14,6 +14,18 @@ impl ConfigBuilder {
         }
     }
 
+    pub fn with_vars<K, V, I>(mut self, vars: I) -> Self
+    where
+        K: Into<String>,
+        V: Into<String>,
+        I: IntoIterator<Item = (K, V)>,
+    {
+        for (k, v) in vars {
+            self.variables.insert(k.into(), v.into());
+        }
+        self
+    }
+
     pub fn load_env_file(mut self, path: &str) -> Self {
         let file_vars = read_env_file(path);
 
