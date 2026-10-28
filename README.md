@@ -1,116 +1,177 @@
 # smart-env
 
-Ergonomic, type-safe configuration for Rust applications. smart-env reads variables from the
-system environment and `.env` files, decides which source wins, parses values into Rust types
-and tells you exactly what is missing or wrong.
+[![Crates.io](https://img.shields.io/crates/v/smart-env.svg)](https://crates.io/crates/smart-env)
+[![Documentation](https://docs.rs/smart-env/badge.svg)](https://docs.rs/smart-env)
+[![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](#license)
 
-> **Status: early development (0.1.0).** The core library works and is tested. The
-> `#[derive(Config)]` macro and the CLI are planned and not usable yet. Not published on
-> crates.io.
+A modern, type-safe, and zero-boilerplate environment configuration loader for Rust, powered by procedural derive macros.
+
+`smart-env` parses environment variables and `.env` files into strongly-typed Rust structures with rich compile-time validation, fallback defaults, and thread-safe testability.
+
+---
 
 ## Features
 
-- **Simple API:** `get`, `get_or` and `init` for the common case.
-- **Builder:** `ConfigBuilder` combines `.env` files and the system environment; sources loaded
-  later override earlier ones.
-- **Typed values:** `String`, `bool`, `u16` and `u32` out of the box (`FromEnv` trait).
-- **`explain`:** shows where a value came from (`System`, `EnvFile` or `Missing`).
-- **Readable errors:** `EnvError` implements `miette::Diagnostic`, with a code and a hint.
+- **Zero Boilerplate**: Annotate your struct with `#[derive(Config)]` and call `AppConfig::load()` or `AppConfig::try_load()`.
+- **Full Primitive Type Support**: Built-in support for all Rust primitive types (`u8`–`u128`, `i8`–`i128`, `usize`, `isize`, `f32`, `f64`, `bool`, `char`, `String`).
+- **Optional Fields (`Option<T>`)**: Missing optional variables automatically evaluate to `None` without throwing errors.
+- **Field Attributes**:
+  - `#[config(default = "...")]` – Fallback values parsed and validated directly into target types.
+  - `#[config(env = "...")]` – Explicitly map fields to custom environment keys.
+- **Fail-Safe Loading**: Choose between panicking on launch (`load()`) or safe error propagation (`try_load() -> Result<Self, EnvError>`).
+- **Deterministic Testability**: Built with `ConfigBuilder::with_vars()` for isolated, thread-safe testing without `unsafe std::env::set_var`.
+
+---
 
 ## Installation
+*Currently unavailable*
+- [x] Add `smart-env` to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-smart-env-core = { git = "https://github.com/PMStudio-Patryk-Matysiewicz/smart-env" }
+smart-env = "0.1"
 ```
 
-## Usage
+---
 
-### Simple API
+## Quickstart
 
 ```rust
-use smart_env_core::{explain, get, get_or, init};
+use smart_env::{Config, EnvError};
 
-fn main() {
-    // Load .env once, at startup
-    init();
+#[derive(Config, Debug, PartialEq)]
+struct AppConfig {
+    // Automatically mapped to HOST
+    host: String,
 
-    // System environment wins over .env
-    let port: u16 = get_or("PORT", 8080);
-    let debug: bool = get("DEBUG").unwrap_or(false);
+    // Automatically mapped to PORT, falls back to 8080 if not set
+    #[config(default = "8080")]
+    port: u16,
 
-    // Where did the value come from?
-    let info = explain("PORT");
-    println!("PORT={port} DEBUG={debug} (source: {:?})", info.source);
+    // Custom environment variable mapping
+    #[config(env = "DATABASE_URL")]
+    db_url: String,
+
+    // Optional field: returns None if DEBUG_MODE is missing
+    debug_mode: Option<bool>,
 }
-```
 
-### Builder
+fn main() -> Result<(), EnvError> {
+    // Safe loading with Result propagation
+    let config = AppConfig::try_load()?;
 
-```rust
-use smart_env_core::ConfigBuilder;
+    println!("Server running on {}:{}", config.host, config.port);
+    println!("Database endpoint: {}", config.db_url);
 
-fn main() -> miette::Result<()> {
-    // Later sources override earlier ones
-    let store = ConfigBuilder::new()
-        .load_env_file(".env")
-        .load_system_env()
-        .build();
+    if config.debug_mode.unwrap_or(false) {
+        println!("Debug mode is ENABLED");
+    }
 
-    let port: u16 = store.get_parsed("PORT")?;
-    let url: String = store.get_parsed("DATABASE_URL")?;
-
-    println!("port {port}, database {url}");
     Ok(())
 }
 ```
 
-With `miette` (`features = ["fancy"]`) a missing variable is reported like this:
+---
 
-```text
-Error: smart_env::missing_var
+## Usage Guide
 
-  × Missing required environment variable: DATABASE_URL
-  help: Make sure this variable is exported in your system or defined in
-        the .env file.
+### 1. Automatic Key Convention
+
+By default, struct field names are converted to uppercase environment variable keys:
+
+| Struct Field | Environment Variable Key |
+| :--- | :--- |
+| `server_host: String` | `SERVER_HOST` |
+| `db_port: u16` | `DB_PORT` |
+| `enable_metrics: bool` | `ENABLE_METRICS` |
+
+---
+
+### 2. Custom Key Override (`#[config(env = "...")]`)
+
+Override the default naming convention when matching existing container or legacy environment variables:
+
+```rust
+#[derive(Config)]
+struct Config {
+    #[config(env = "REDIS_PRIMARY_ENDPOINT")]
+    redis_url: String,
+}
 ```
 
-## `.env` format
+---
 
-```env
-# comments and empty lines are skipped
-PORT=3000
-DEBUG=true
+### 3. Fallback Values (`#[config(default = "...")]`)
+
+Provide default values directly over fields. Default strings are automatically parsed using the field's target type `FromEnv` implementation:
+
+```rust
+#[derive(Config)]
+struct ServerConfig {
+    #[config(default = "127.0.0.1")]
+    host: String,
+
+    #[config(default = "3000")]
+    port: u16,
+
+    #[config(default = "false")]
+    maintenance_mode: bool,
+}
 ```
 
-One `KEY=VALUE` per line, whitespace around keys and values is trimmed. Quotes and inline
-comments are not handled yet. A missing file is treated as empty.
+---
 
-## Good to know
+### 4. Optional Environment Variables (`Option<T>`)
 
-- `get` returns `None` both when a variable is missing and when it cannot be parsed. Use
-  `ConfigBuilder` and `get_parsed` when you need the reason.
-- `init` loads `.env` from the current directory once per process; later calls do nothing.
+Fields wrapped in `Option<T>` will evaluate to `Some(parsed_value)` if present, or `None` if absent:
 
-## Project layout
+```rust
+#[derive(Config)]
+struct TelemetryConfig {
+    // Required
+    app_id: String,
 
-| Crate | Purpose |
-| --- | --- |
-| `core` (`smart-env-core`) | the library |
-| `macros` | `#[derive(Config)]`, work in progress |
-| `cli` | command line tool, work in progress |
+    // Optional: Returns None if SENTRY_DSN is not set
+    sentry_dsn: Option<String>,
+}
+```
+
+---
+
+## Architecture
+
+`smart-env` is structured as a modular Cargo Workspace:
+
+```
+smart-env/
+├── core/     (smart-env-core)   -> Engine logic, ConfigBuilder, EnvStore & type parsers
+├── macros/   (smart-env-macros) -> Procedural derive macro implementation (syn/quote)
+├── cli/      (smart-env-cli)    -> Developer tooling for .env checking and generation
+└── src/      (smart-env)        -> Unified public facade crate
+```
+
+---
 
 ## Roadmap
 
-- `#[derive(Config)]`: load and parse values straight into your structs, no boilerplate
-- CLI commands
-- more types and a fuller `.env` syntax
+- [x] Core `ConfigBuilder` & `EnvStore` engine
+- [x] Basic `#[derive(Config)]` macro
+- [x] Primitive types & `Option<T>` support
+- [x] Field attributes (`#[config(default = "...")]`, `#[config(env = "...")]`)
+- [x] Safe `try_load()` error handling
+- [x] Deterministic `with_vars()` builder testing
+- [x] Unified facade crate (`smart-env`)
+- [ ] Nested configuration structs (`#[config(nested)]`)
+- [ ] Array / Vector parsing (`Vec<T>` with custom separators)
+- [ ] CLI `.env.example` generator (`smart-env-cli`)
 
-## Running tests
+---
 
-```bash
-cd smart-env
-cargo test -p smart-env-core
-```
+## License
 
-Unit tests live next to the code in `src/`; tests of the public API live in `core/tests/`.
+Licensed under either of:
+
+* Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
+* MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+
+at your option.
