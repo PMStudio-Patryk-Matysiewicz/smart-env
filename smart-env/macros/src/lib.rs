@@ -1,8 +1,37 @@
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
-    parse_macro_input, Data, DeriveInput, Fields, GenericArgument, PathArguments, Type, TypePath,
+    parse_macro_input, Data, DeriveInput, Field, Fields, GenericArgument, PathArguments, Type, TypePath,
 };
+
+#[derive(Default)]
+struct FieldConfig {
+    default: Option<String>,
+    env: Option<String>,
+}
+
+fn parse_field_config(field: &Field) -> FieldConfig {
+    let mut cfg = FieldConfig::default();
+
+    for attr in &field.attrs {
+        if attr.path().is_ident("config") {
+            let _ = attr.parse_nested_meta(|meta| {
+                if meta.path.is_ident("default") {
+                    let lit: syn::LitStr = meta.value()?.parse()?;
+                    cfg.default = Some(lit.value());
+                    Ok(())
+                } else if meta.path.is_ident("env") {
+                    let lit: syn::LitStr = meta.value()?.parse()?;
+                    cfg.env = Some(lit.value());
+                    Ok(())
+                } else {
+                    Err(meta.error("unrecognized #[config(...)] attribute key"))
+                }
+            });
+        }
+    }
+    cfg
+}
 
 fn extract_inner_option_type(ty: &Type) -> Option<&Type> {
     if let Type::Path(TypePath { path, .. }) = ty {
@@ -19,7 +48,7 @@ fn extract_inner_option_type(ty: &Type) -> Option<&Type> {
     None
 }
 
-#[proc_macro_derive(Config)]
+#[proc_macro_derive(Config, attributes(config))]
 pub fn derive_config(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let struct_name = &input.ident;
@@ -45,19 +74,44 @@ pub fn derive_config(input: TokenStream) -> TokenStream {
     let field_initializers = fields.iter().map(|f| {
         let field_name = f.ident.as_ref().expect("Named field must have an identifier");
         let field_type = &f.ty;
-        let env_key = field_name.to_string().to_uppercase();
+        let field_cfg = parse_field_config(f);
+        let env_key = field_cfg
+            .env
+            .unwrap_or_else(|| field_name.to_string().to_uppercase());
 
         if let Some(inner_type) = extract_inner_option_type(field_type) {
-            quote! {
-                #field_name: store.get_parsed::<#inner_type>(#env_key).ok()
+            if let Some(default_val) = field_cfg.default {
+                quote! {
+                    #field_name: store.get_parsed::<#inner_type>(#env_key)
+                        .ok()
+                        .or_else(|| smart_env_core::parser::FromEnv::from_env(#default_val).ok())
+                }
+            } else {
+                quote! {
+                    #field_name: store.get_parsed::<#inner_type>(#env_key).ok()
+                }
             }
         } else {
-            let error_msg = format!(
-                "Failed to load required environment variable '{}' for field '{}'",
-                env_key, field_name
-            );
-            quote! {
-                #field_name: store.get_parsed::<#field_type>(#env_key).expect(#error_msg)
+            if let Some(default_val) = field_cfg.default {
+                let parse_err_msg = format!(
+                    "Failed to parse default value '{}' for field '{}'",
+                    default_val, field_name
+                );
+                quote! {
+                    #field_name: store.get_parsed::<#field_type>(#env_key)
+                        .unwrap_or_else(|_| {
+                            smart_env_core::parser::FromEnv::from_env(#default_val)
+                                .expect(#parse_err_msg)
+                        })
+                }
+            } else {
+                let missing_err_msg = format!(
+                    "Failed to load required environment variable '{}' for field '{}'",
+                    env_key, field_name
+                );
+                quote! {
+                    #field_name: store.get_parsed::<#field_type>(#env_key).expect(#missing_err_msg)
+                }
             }
         }
     });

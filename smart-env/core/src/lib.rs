@@ -3,7 +3,7 @@ mod env_file;
 mod error;
 mod explain;
 mod get;
-mod parser;
+pub mod parser;
 mod state;
 mod store;
 
