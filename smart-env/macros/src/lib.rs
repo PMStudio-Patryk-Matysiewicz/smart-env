@@ -116,7 +116,39 @@ pub fn derive_config(input: TokenStream) -> TokenStream {
         }
     });
 
-    let expanded = quote! {
+    let try_field_initializers = fields.iter().map(|f| {
+        let field_name = f.ident.as_ref().expect("Named field must have an identifier");
+        let field_type = &f.ty;
+        let field_cfg = parse_field_config(f);
+        let env_key = field_cfg
+            .env
+            .unwrap_or_else(|| field_name.to_string().to_uppercase());
+
+        if let Some(inner_type) = extract_inner_option_type(field_type) {
+            if let Some(default_val) = field_cfg.default {
+                quote! {
+                    #field_name: store.get_parsed::<#inner_type>(#env_key)
+                        .ok()
+                        .or_else(|| smart_env_core::parser::FromEnv::from_env(#default_val).ok())
+                }
+            } else {
+                quote! {
+                    #field_name: store.get_parsed::<#inner_type>(#env_key).ok()
+                }
+            }
+        } else if let Some(default_val) = field_cfg.default {
+            quote! {
+                #field_name: store.get_parsed::<#field_type>(#env_key)
+                    .or_else(|_| smart_env_core::parser::FromEnv::from_env(#default_val))?
+            }
+        } else {
+            quote! {
+                #field_name: store.get_parsed::<#field_type>(#env_key)?
+            }
+        }
+    });
+
+let expanded = quote! {
         impl #struct_name {
             pub fn load() -> Self {
                 let store = smart_env_core::ConfigBuilder::new()
@@ -128,7 +160,19 @@ pub fn derive_config(input: TokenStream) -> TokenStream {
                     #(#field_initializers),*
                 }
             }
+
+            pub fn try_load() -> Result<Self, smart_env_core::EnvError> {
+                let store = smart_env_core::ConfigBuilder::new()
+                    .load_env_file(".env")
+                    .load_system_env()
+                    .build();
+
+                Ok(Self {
+                    #(#try_field_initializers),*
+                })
+            }
         }
     };
+
     TokenStream::from(expanded)
 }

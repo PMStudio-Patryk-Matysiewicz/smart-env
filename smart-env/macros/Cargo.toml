@@ -7,9 +7,11 @@ edition = "2024"
 proc-macro = true
 
 [dependencies]
-syn = { version = "2.0", features = ["full"] }
+syn = { version = "3", features = ["full"] }
 quote = "1.0"
 proc-macro2 = "1.0"
 
 [dev-dependencies]
 smart-env-core = { path = "../core" }
+temp-env = "0.3"
+tempfile = "3"
