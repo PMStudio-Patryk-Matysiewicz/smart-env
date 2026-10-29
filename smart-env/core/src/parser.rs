@@ -30,6 +30,20 @@ impl_from_env_via_from_str!(
     f32, f64
 );
 
+impl<T: FromEnv> FromEnv for Vec<T> {
+    fn from_env(s: &str) -> Result<Self, EnvError> {
+        let trimmed = s.trim();
+        if trimmed.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        trimmed
+            .split(',')
+            .map(|part| T::from_env(part.trim()))
+            .collect()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -52,5 +66,37 @@ mod tests {
         assert_eq!(isize::from_env("-50").unwrap(), -50);
         assert_eq!(f32::from_env("3.14").unwrap(), 3.14_f32);
         assert_eq!(f64::from_env("2.7182818284").unwrap(), 2.7182818284_f64);
+    }
+
+    #[test]
+    fn test_parse_vec_of_strings() {
+        let raw = "127.0.0.1, 192.168.1.1, 10.0.0.1";
+        let parsed: Vec<String> = FromEnv::from_env(raw).unwrap();
+
+        assert_eq!(parsed, vec!["127.0.0.1", "192.168.1.1", "10.0.0.1"]);
+    }
+
+    #[test]
+    fn test_parse_vec_of_numbers() {
+        let raw = "80, 443, 8080";
+        let parsed: Vec<u16> = FromEnv::from_env(raw).unwrap();
+
+        assert_eq!(parsed, vec![80, 443, 8080]);
+    }
+
+    #[test]
+    fn test_parse_empty_vec() {
+        let raw = "   ";
+        let parsed: Vec<i32> = FromEnv::from_env(raw).unwrap();
+
+        assert!(parsed.is_empty());
+    }
+
+    #[test]
+    fn test_parse_invalid_element_fails() {
+        let raw = "80, invalid_port, 8080";
+        let result = Vec::<u16>::from_env(raw);
+
+        assert!(result.is_err());
     }
 }
