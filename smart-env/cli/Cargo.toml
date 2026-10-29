@@ -1,5 +1,5 @@
 [package]
-name = "cli"
+name = "smart-env-cli"
 version = "0.1.0"
 edition = "2024"
 description = "Type-safe, DX-focused environment configuration loader for Rust."
