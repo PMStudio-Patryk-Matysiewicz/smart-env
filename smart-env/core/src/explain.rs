@@ -1,4 +1,6 @@
 use crate::state::get_from_env_file;
+use std::collections::BTreeSet;
+use crate::ConfigBuilder;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Source {
@@ -36,4 +38,16 @@ pub fn explain(key: &str) -> Explanation {
         value: None,
         source: Source::Missing,
     }
+}
+
+pub fn explain_all() -> Vec<Explanation> {
+    let mut keys = BTreeSet::new();
+    keys.extend(std::env::vars().map(|(k, _)| k));
+
+    let env_store = ConfigBuilder::new()
+        .load_env_file(".env")
+        .build();
+    
+    keys.extend(env_store.iter().map(|(k, _)| k.clone()));
+    keys.into_iter().map(|key| explain(&key)).collect()
 }

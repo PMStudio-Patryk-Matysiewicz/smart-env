@@ -9,7 +9,7 @@ pub mod store;
 
 pub use builder::ConfigBuilder;
 pub use error::EnvError;
-pub use explain::{explain, Explanation, Source};
+pub use explain::{explain, Explanation, Source, explain_all};
 pub use get::{get, get_or};
 pub use store::EnvStore;
 

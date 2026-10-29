@@ -18,6 +18,14 @@ impl EnvStore {
     pub fn get(&self, key: &str) -> Option<&String> {
         self.variables.get(key)
     }
+
+    pub fn len(&self) -> usize {
+        self.variables.len()
+    }
+
+    pub fn iter(&self) -> std::collections::hash_map::Iter<'_, String, String> {
+        self.variables.iter()
+    }
 }
 
 #[cfg(test)]
