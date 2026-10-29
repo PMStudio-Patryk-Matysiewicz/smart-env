@@ -9,6 +9,7 @@ edition = "2024"
 license = "MIT OR Apache-2.0"
 description = "Type-safe, DX-focused environment configuration loader for Rust."
 repository = "https://github.com/PMStudio-Patryk-Matysiewicz/smart-env"
+authors = ["Pat <pmatysiewicz1@gmail.com>"]
 
 [dependencies]
 smart-env-core = { version = "0.1.0", path = "./core" }
