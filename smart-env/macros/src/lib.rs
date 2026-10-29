@@ -71,7 +71,7 @@ pub fn derive_config(input: TokenStream) -> TokenStream {
         }
     };
 
-    let field_initializers = fields.iter().map(|f| {
+    let field_initializers: Vec<_> = fields.iter().map(|f| {
         let field_name = f.ident.as_ref().expect("Named field must have an identifier");
         let field_type = &f.ty;
         let field_cfg = parse_field_config(f);
@@ -114,9 +114,9 @@ pub fn derive_config(input: TokenStream) -> TokenStream {
                 }
             }
         }
-    });
+    }).collect();
 
-    let try_field_initializers = fields.iter().map(|f| {
+    let try_field_initializers: Vec<_> = fields.iter().map(|f| {
         let field_name = f.ident.as_ref().expect("Named field must have an identifier");
         let field_type = &f.ty;
         let field_cfg = parse_field_config(f);
@@ -146,9 +146,9 @@ pub fn derive_config(input: TokenStream) -> TokenStream {
                 #field_name: store.get_parsed::<#field_type>(#env_key)?
             }
         }
-    });
+    }).collect();
 
-let expanded = quote! {
+    let expanded = quote! {
         impl #struct_name {
             pub fn load() -> Self {
                 let store = smart_env_core::ConfigBuilder::new()
@@ -161,10 +161,40 @@ let expanded = quote! {
                 }
             }
 
+            pub fn load_from_vars<K, V, I>(vars: I) -> Self
+            where
+                K: Into<String>,
+                V: Into<String>,
+                I: IntoIterator<Item = (K, V)>,
+            {
+                let store = smart_env_core::ConfigBuilder::new()
+                    .with_vars(vars)
+                    .build();
+
+                Self {
+                    #(#field_initializers),*
+                }
+            }
+
             pub fn try_load() -> Result<Self, smart_env_core::EnvError> {
                 let store = smart_env_core::ConfigBuilder::new()
                     .load_env_file(".env")
                     .load_system_env()
+                    .build();
+
+                Ok(Self {
+                    #(#try_field_initializers),*
+                })
+            }
+
+            pub fn try_load_from_vars<K, V, I>(vars: I) -> Result<Self, smart_env_core::EnvError>
+            where
+                K: Into<String>,
+                V: Into<String>,
+                I: IntoIterator<Item = (K, V)>,
+            {
+                let store = smart_env_core::ConfigBuilder::new()
+                    .with_vars(vars)
                     .build();
 
                 Ok(Self {
