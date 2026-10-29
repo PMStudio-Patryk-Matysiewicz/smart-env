@@ -20,7 +20,7 @@ fn test_derive_config_loads_from_env() {
     
     assert_eq!(config.server_host, "127.0.0.1");
     assert_eq!(config.server_port, 8080);
-    assert_eq!(config.enable_metrics, true);
+    assert!(config.enable_metrics);
 
     unsafe {
         env::remove_var("SERVER_HOST");

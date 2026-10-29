@@ -2,9 +2,13 @@
 name = "cli"
 version = "0.1.0"
 edition = "2024"
+description = "Type-safe, DX-focused environment configuration loader for Rust."
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/PMStudio-Patryk-Matysiewicz/smart-env"
 
 [dependencies]
-smart-env-core = { path = "../core" }
+smart-env-core = { version = "0.1.0", path = "../core" }
+smart-env-macros = { version = "0.1.0", path = "../macros" }
 
 [[bin]]
 name = "smart-env"

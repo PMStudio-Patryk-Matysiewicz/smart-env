@@ -23,6 +23,10 @@ impl EnvStore {
         self.variables.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.variables.is_empty()
+    }
+
     pub fn iter(&self) -> std::collections::hash_map::Iter<'_, String, String> {
         self.variables.iter()
     }

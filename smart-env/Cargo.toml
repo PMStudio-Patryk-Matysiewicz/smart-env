@@ -6,12 +6,13 @@ resolver = "2"
 name = "smart-env"
 version = "0.1.0"
 edition = "2024"
-description = "A production-ready, type-safe environment configuration library for Rust"
 license = "MIT OR Apache-2.0"
+description = "Type-safe, DX-focused environment configuration loader for Rust."
+repository = "https://github.com/PMStudio-Patryk-Matysiewicz/smart-env"
 
 [dependencies]
-smart-env-core = { path = "./core", version = "0.1.0" }
-smart-env-macros = { path = "./macros", version = "0.1.0" }
+smart-env-core = { version = "0.1.0", path = "./core" }
+smart-env-macros = { version = "0.1.0", path = "./macros" }
 
 [dev-dependencies]
 temp-env = "0.3"

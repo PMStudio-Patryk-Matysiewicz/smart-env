@@ -43,18 +43,24 @@ fn parse_field_config(field: &Field) -> FieldConfig {
 }
 
 fn extract_inner_option_type(ty: &Type) -> Option<&Type> {
-    if let Type::Path(TypePath { path, .. }) = ty {
-        if let Some(segment) = path.segments.last() {
-            if segment.ident == "Option" {
-                if let PathArguments::AngleBracketed(args) = &segment.arguments {
-                    if let Some(GenericArgument::Type(inner_type)) = args.args.first() {
-                        return Some(inner_type);
-                    }
-                }
-            }
-        }
+    let Type::Path(TypePath { path, .. }) = ty else {
+        return None;
+    };
+
+    let segment = path.segments.last()?;
+    if segment.ident != "Option" {
+        return None;
     }
-    None
+
+    let PathArguments::AngleBracketed(args) = &segment.arguments else {
+        return None;
+    };
+
+    let GenericArgument::Type(inner_type) = args.args.first()? else {
+        return None;
+    };
+
+    Some(inner_type)
 }
 
 #[proc_macro_derive(Config, attributes(config))]
