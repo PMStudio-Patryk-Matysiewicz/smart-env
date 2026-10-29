@@ -8,6 +8,8 @@ use syn::{
 struct FieldConfig {
     default: Option<String>,
     env: Option<String>,
+    nested: bool,
+    prefix: Option<String>,
 }
 
 fn parse_field_config(field: &Field) -> FieldConfig {
@@ -23,6 +25,13 @@ fn parse_field_config(field: &Field) -> FieldConfig {
                 } else if meta.path.is_ident("env") {
                     let lit: syn::LitStr = meta.value()?.parse()?;
                     cfg.env = Some(lit.value());
+                    Ok(())
+                } else if meta.path.is_ident("nested") {
+                    cfg.nested = true;
+                    Ok(())
+                } else if meta.path.is_ident("prefix") {
+                    let lit: syn::LitStr = meta.value()?.parse()?;
+                    cfg.prefix = Some(lit.value());
                     Ok(())
                 } else {
                     Err(meta.error("unrecognized #[config(...)] attribute key"))
@@ -71,34 +80,44 @@ pub fn derive_config(input: TokenStream) -> TokenStream {
         }
     };
 
-    let field_initializers: Vec<_> = fields.iter().map(|f| {
+let from_store_initializers: Vec<_> = fields
+    .iter()
+    .map(|f| {
         let field_name = f.ident.as_ref().expect("Named field must have an identifier");
         let field_type = &f.ty;
         let field_cfg = parse_field_config(f);
-        let env_key = field_cfg
-            .env
-            .unwrap_or_else(|| field_name.to_string().to_uppercase());
 
-        if let Some(inner_type) = extract_inner_option_type(field_type) {
-            if let Some(default_val) = field_cfg.default {
-                quote! {
-                    #field_name: store.get_parsed::<#inner_type>(#env_key)
-                        .ok()
-                        .or_else(|| smart_env_core::parser::FromEnv::from_env(#default_val).ok())
-                }
-            } else {
-                quote! {
-                    #field_name: store.get_parsed::<#inner_type>(#env_key).ok()
-                }
+        if field_cfg.nested {
+            let nested_prefix = field_cfg.prefix.unwrap_or_else(|| {
+                format!("{}_", field_name.to_string().to_uppercase())
+            });
+            quote! {
+                #field_name: #field_type::from_store(store, &format!("{}{}", prefix, #nested_prefix))
             }
         } else {
-            if let Some(default_val) = field_cfg.default {
+            let env_key = field_cfg
+                .env
+                .unwrap_or_else(|| field_name.to_string().to_uppercase());
+
+            if let Some(inner_type) = extract_inner_option_type(field_type) {
+                if let Some(default_val) = field_cfg.default {
+                    quote! {
+                        #field_name: store.get_parsed::<#inner_type>(&format!("{}{}", prefix, #env_key))
+                            .ok()
+                            .or_else(|| smart_env_core::parser::FromEnv::from_env(#default_val).ok())
+                    }
+                } else {
+                    quote! {
+                        #field_name: store.get_parsed::<#inner_type>(&format!("{}{}", prefix, #env_key)).ok()
+                    }
+                }
+            } else if let Some(default_val) = field_cfg.default {
                 let parse_err_msg = format!(
                     "Failed to parse default value '{}' for field '{}'",
                     default_val, field_name
                 );
                 quote! {
-                    #field_name: store.get_parsed::<#field_type>(#env_key)
+                    #field_name: store.get_parsed::<#field_type>(&format!("{}{}", prefix, #env_key))
                         .unwrap_or_else(|_| {
                             smart_env_core::parser::FromEnv::from_env(#default_val)
                                 .expect(#parse_err_msg)
@@ -110,55 +129,76 @@ pub fn derive_config(input: TokenStream) -> TokenStream {
                     env_key, field_name
                 );
                 quote! {
-                    #field_name: store.get_parsed::<#field_type>(#env_key).expect(#missing_err_msg)
+                    #field_name: store.get_parsed::<#field_type>(&format!("{}{}", prefix, #env_key)).expect(#missing_err_msg)
                 }
             }
         }
     }).collect();
 
-    let try_field_initializers: Vec<_> = fields.iter().map(|f| {
+    let try_from_store_initializers: Vec<_> = fields
+    .iter()
+    .map(|f| {
         let field_name = f.ident.as_ref().expect("Named field must have an identifier");
         let field_type = &f.ty;
         let field_cfg = parse_field_config(f);
-        let env_key = field_cfg
-            .env
-            .unwrap_or_else(|| field_name.to_string().to_uppercase());
 
-        if let Some(inner_type) = extract_inner_option_type(field_type) {
-            if let Some(default_val) = field_cfg.default {
+        if field_cfg.nested {
+            let nested_prefix = field_cfg.prefix.unwrap_or_else(|| {
+                format!("{}_", field_name.to_string().to_uppercase())
+            });
+            quote! {
+                #field_name: #field_type::try_from_store(store, &format!("{}{}", prefix, #nested_prefix))?
+            }
+        } else {
+            let env_key = field_cfg
+                .env
+                .unwrap_or_else(|| field_name.to_string().to_uppercase());
+
+            if let Some(inner_type) = extract_inner_option_type(field_type) {
+                if let Some(default_val) = field_cfg.default {
+                    quote! {
+                        #field_name: store.get_parsed::<#inner_type>(&format!("{}{}", prefix, #env_key))
+                            .ok()
+                            .or_else(|| smart_env_core::parser::FromEnv::from_env(#default_val).ok())
+                    }
+                } else {
+                    quote! {
+                        #field_name: store.get_parsed::<#inner_type>(&format!("{}{}", prefix, #env_key)).ok()
+                    }
+                }
+            } else if let Some(default_val) = field_cfg.default {
                 quote! {
-                    #field_name: store.get_parsed::<#inner_type>(#env_key)
-                        .ok()
-                        .or_else(|| smart_env_core::parser::FromEnv::from_env(#default_val).ok())
+                    #field_name: store.get_parsed::<#field_type>(&format!("{}{}", prefix, #env_key))
+                        .or_else(|_| smart_env_core::parser::FromEnv::from_env(#default_val))?
                 }
             } else {
                 quote! {
-                    #field_name: store.get_parsed::<#inner_type>(#env_key).ok()
+                    #field_name: store.get_parsed::<#field_type>(&format!("{}{}", prefix, #env_key))?
                 }
-            }
-        } else if let Some(default_val) = field_cfg.default {
-            quote! {
-                #field_name: store.get_parsed::<#field_type>(#env_key)
-                    .or_else(|_| smart_env_core::parser::FromEnv::from_env(#default_val))?
-            }
-        } else {
-            quote! {
-                #field_name: store.get_parsed::<#field_type>(#env_key)?
             }
         }
     }).collect();
 
     let expanded = quote! {
         impl #struct_name {
+            pub fn from_store(store: &smart_env_core::EnvStore, prefix: &str) -> Self {
+                Self {
+                    #(#from_store_initializers),*
+                }
+            }
+
+            pub fn try_from_store(store: &smart_env_core::EnvStore, prefix: &str) -> Result<Self, smart_env_core::EnvError> {
+                Ok(Self {
+                    #(#try_from_store_initializers),*
+                })
+            }
             pub fn load() -> Self {
                 let store = smart_env_core::ConfigBuilder::new()
                     .load_env_file(".env")
                     .load_system_env()
                     .build();
 
-                Self {
-                    #(#field_initializers),*
-                }
+                Self::from_store(&store, "")
             }
 
             pub fn load_from_vars<K, V, I>(vars: I) -> Self
@@ -171,9 +211,7 @@ pub fn derive_config(input: TokenStream) -> TokenStream {
                     .with_vars(vars)
                     .build();
 
-                Self {
-                    #(#field_initializers),*
-                }
+                Self::from_store(&store, "")
             }
 
             pub fn try_load() -> Result<Self, smart_env_core::EnvError> {
@@ -182,9 +220,7 @@ pub fn derive_config(input: TokenStream) -> TokenStream {
                     .load_system_env()
                     .build();
 
-                Ok(Self {
-                    #(#try_field_initializers),*
-                })
+                Self::try_from_store(&store, "")
             }
 
             pub fn try_load_from_vars<K, V, I>(vars: I) -> Result<Self, smart_env_core::EnvError>
@@ -197,9 +233,7 @@ pub fn derive_config(input: TokenStream) -> TokenStream {
                     .with_vars(vars)
                     .build();
 
-                Ok(Self {
-                    #(#try_field_initializers),*
-                })
+                Self::try_from_store(&store, "")
             }
         }
     };
