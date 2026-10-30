@@ -110,7 +110,7 @@ let from_store_initializers: Vec<_> = fields
                     quote! {
                         #field_name: store.get_parsed::<#inner_type>(&format!("{}{}", prefix, #env_key))
                             .ok()
-                            .or_else(|| smart_env_core::parser::FromEnv::from_env(#default_val).ok())
+                            .or_else(|| ::smart_env::core::parser::FromEnv::from_env(#default_val).ok())
                     }
                 } else {
                     quote! {
@@ -125,7 +125,7 @@ let from_store_initializers: Vec<_> = fields
                 quote! {
                     #field_name: store.get_parsed::<#field_type>(&format!("{}{}", prefix, #env_key))
                         .unwrap_or_else(|_| {
-                            smart_env_core::parser::FromEnv::from_env(#default_val)
+                            ::smart_env::core::parser::FromEnv::from_env(#default_val)
                                 .expect(#parse_err_msg)
                         })
                 }
@@ -165,7 +165,7 @@ let from_store_initializers: Vec<_> = fields
                     quote! {
                         #field_name: store.get_parsed::<#inner_type>(&format!("{}{}", prefix, #env_key))
                             .ok()
-                            .or_else(|| smart_env_core::parser::FromEnv::from_env(#default_val).ok())
+                            .or_else(|| ::smart_env::core::parser::FromEnv::from_env(#default_val).ok())
                     }
                 } else {
                     quote! {
@@ -175,7 +175,7 @@ let from_store_initializers: Vec<_> = fields
             } else if let Some(default_val) = field_cfg.default {
                 quote! {
                     #field_name: store.get_parsed::<#field_type>(&format!("{}{}", prefix, #env_key))
-                        .or_else(|_| smart_env_core::parser::FromEnv::from_env(#default_val))?
+                        .or_else(|_| ::smart_env::core::parser::FromEnv::from_env(#default_val))?
                 }
             } else {
                 quote! {
@@ -187,19 +187,19 @@ let from_store_initializers: Vec<_> = fields
 
     let expanded = quote! {
         impl #struct_name {
-            pub fn from_store(store: &smart_env_core::EnvStore, prefix: &str) -> Self {
+            pub fn from_store(store: &::smart_env::core::EnvStore, prefix: &str) -> Self {
                 Self {
                     #(#from_store_initializers),*
                 }
             }
 
-            pub fn try_from_store(store: &smart_env_core::EnvStore, prefix: &str) -> Result<Self, smart_env_core::EnvError> {
+            pub fn try_from_store(store: &::smart_env::core::EnvStore, prefix: &str) -> Result<Self, ::smart_env::core::EnvError> {
                 Ok(Self {
                     #(#try_from_store_initializers),*
                 })
             }
             pub fn load() -> Self {
-                let store = smart_env_core::ConfigBuilder::new()
+                let store = ::smart_env::core::ConfigBuilder::new()
                     .load_env_file(".env")
                     .load_system_env()
                     .build();
@@ -213,15 +213,15 @@ let from_store_initializers: Vec<_> = fields
                 V: Into<String>,
                 I: IntoIterator<Item = (K, V)>,
             {
-                let store = smart_env_core::ConfigBuilder::new()
+                let store = ::smart_env::core::ConfigBuilder::new()
                     .with_vars(vars)
                     .build();
 
                 Self::from_store(&store, "")
             }
 
-            pub fn try_load() -> Result<Self, smart_env_core::EnvError> {
-                let store = smart_env_core::ConfigBuilder::new()
+            pub fn try_load() -> Result<Self, ::smart_env::core::EnvError> {
+                let store = ::smart_env::core::ConfigBuilder::new()
                     .load_env_file(".env")
                     .load_system_env()
                     .build();
@@ -229,13 +229,13 @@ let from_store_initializers: Vec<_> = fields
                 Self::try_from_store(&store, "")
             }
 
-            pub fn try_load_from_vars<K, V, I>(vars: I) -> Result<Self, smart_env_core::EnvError>
+            pub fn try_load_from_vars<K, V, I>(vars: I) -> Result<Self, ::smart_env::core::EnvError>
             where
                 K: Into<String>,
                 V: Into<String>,
                 I: IntoIterator<Item = (K, V)>,
             {
-                let store = smart_env_core::ConfigBuilder::new()
+                let store = ::smart_env::core::ConfigBuilder::new()
                     .with_vars(vars)
                     .build();
 

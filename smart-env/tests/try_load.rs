@@ -1,4 +1,4 @@
-use smart_env_macros::Config;
+use smart_env::Config;
 use temp_env::with_vars;
 
 #[derive(Config, Debug, PartialEq)]

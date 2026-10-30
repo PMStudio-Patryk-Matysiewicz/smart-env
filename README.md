@@ -24,7 +24,7 @@ Add `smart-env` to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-smart-env = "0.1.0"
+smart-env = "0.1"
 ```
 
 ---

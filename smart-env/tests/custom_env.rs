@@ -1,4 +1,4 @@
-use smart_env_macros::Config;
+use smart_env::Config;
 
 #[derive(Config, Debug, PartialEq)]
 struct CustomEnvConfig {

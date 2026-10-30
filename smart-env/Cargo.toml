@@ -4,16 +4,19 @@ resolver = "2"
 
 [package]
 name = "smart-env"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 license = "MIT OR Apache-2.0"
 description = "Type-safe, DX-focused environment configuration loader for Rust."
 repository = "https://github.com/PMStudio-Patryk-Matysiewicz/smart-env"
 authors = ["Pat <pmatysiewicz1@gmail.com>"]
+keywords = ["env", "dotenv", "config", "configuration", "derive"]
+categories = ["config"]
+readme = "../README.md"
 
 [dependencies]
 smart-env-core = { version = "0.1.0", path = "./core" }
-smart-env-macros = { version = "0.1.0", path = "./macros" }
+smart-env-macros = { version = "0.1.1", path = "./macros" }
 
 [dev-dependencies]
 temp-env = "0.3"
